@@ -1,0 +1,9 @@
+# /etc/nginx/sites-available/api
+# Make sure to symlink from sites-enabled.
+server {
+    listen 80;
+    server_name 34.150.158.198;
+    location / {
+        proxy_pass http://unix:/run/gunicorn.sock;
+    }
+}
