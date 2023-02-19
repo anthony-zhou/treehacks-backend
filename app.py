@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pyannote.audio import Pipeline
 import re
@@ -20,9 +20,9 @@ app.add_middleware(
 
 
 
-SPEAKER_NAME = 'sonali'
-AUDIOFILE_NAME = 'Sonali Das 7-8.wav'
-NUM_SPEAKERS = 3
+SPEAKER_NAME = 'lauren'
+AUDIOFILE_NAME = 'Lauren brooks.wav'
+NUM_SPEAKERS = 4
 
 def get_diarized_transcript():
   pipeline = Pipeline.from_pretrained('pyannote/speaker-diarization', use_auth_token='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')
@@ -49,6 +49,20 @@ def get_diarized_transcript():
   return transcripts
     
 
+
 @app.get("/", tags=["Root"])
 async def read_root():
     return {"message": "Welcome to the API!"}
+
+@app.post("/upload")
+def upload(file: UploadFile = File(...)):
+    try:
+        contents = file.file.read()
+        with open('temp.webm', "wb") as buffer:
+            buffer.write(contents)
+    except Exception:
+        return {"message": "There was an error uploading the file"}
+    finally:
+        file.file.close()
+
+    return {"message": f"Successfully uploaded {file.filename}"}
