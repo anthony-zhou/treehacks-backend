@@ -6,7 +6,7 @@
 
 from typing import Union
 from uuid import uuid4
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import firebase_admin
@@ -51,10 +51,7 @@ class Conversation(BaseModel):
     audio_file_path: str
     interviewee_name: str
 
-
-# Given a download URL (wav file), download the URL and return the analysis
-@app.post("/conversation_analysis")
-async def get_convo_analysis(url: str):
+async def analyze_conversation_background(url: str, docId: str):
     print("request received")
     # download the file temporarily
     # r = requests.get(url)
@@ -97,7 +94,18 @@ async def get_convo_analysis(url: str):
 
     questions = get_questions('temp')
 
+    # upload the results to firebase
+    db.collection('conversations').document(docId).update({"transcripts": processed_data, "questions": questions })
+
+    
+
     return {"transcripts": processed_data, "questions": questions }
+
+# Given a download URL (wav file), download the URL and return the analysis
+@app.post("/conversation_analysis")
+async def get_convo_analysis(url: str, docId: str, background_tasks: BackgroundTasks):
+    background_tasks.add_task(analyze_conversation_background, url, docId)
+    return {"message": "Request received, processing in the background"}
 
 
 
