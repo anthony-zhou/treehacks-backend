@@ -96,9 +96,16 @@ async def analyze_conversation_background(url: str, docId: str, final:bool = Tru
         # upload the results to firebase
         db.collection('conversations').document(docId).update({"transcripts": processed_data, "questions": questions })
 
+        interviewee_name = db.collection('conversations').document(docId).get().to_dict()["title"]
+        # Generate chunks
+        chunks = get_chunks_from_json(processed_data, interviewee_name, docId)
+        # Store chunks in firebase
+        for chunk in chunks:
+            db.collection('chunks').add(chunk)
+
     questions = get_questions('temp')
 
-    return {"transcripts": processed_data, "questions": questions, "stored_json":  stored }
+    return {"transcripts": processed_data, "questions": questions, "stored_json":  stored, "stored_chunks": stored }
 
 # Given a download URL (wav file), download the URL and return the analysis
 @app.post("/conversation_analysis")
@@ -133,8 +140,17 @@ class Chunk(BaseModel):
     chunk_start: str
     chunk_end: str
 
-def get_all_chunks():
+def get_chunks_from_json(convos_json, interviewee_name, file_name):
     """Returns all chunks from the database"""
+
+    chunks = []
+    convos_json_clean = clean_json(convos_json)
+    chunk_segments = chunkify(convos_json_clean, "medium")
+    chunks = [{"text": json_to_transcript(convos_json_clean[s:e]).strip(), "file_name": file_name, "interviewee_name": interviewee_name, "chunk_start": s, "chunk_end": e} for s,e in chunk_segments]
+    return chunks
+
+def get_all_chunks_from_json():
+    """Returns all chunks from the json in the database"""
     convos = db.collection(u'conversations').get()
     transcripts_jsons = []
     interviewee_names = []
@@ -149,10 +165,16 @@ def get_all_chunks():
 
     chunks = []
     for data, file_name, interviewee_name in zip(transcripts_jsons, uuids, interviewee_names):
-        data_clean = clean_json(data)
-        chunk_segments = chunkify(data_clean, "medium")
-        chunks.extend([{"text": json_to_transcript(data_clean[s:e]).strip(), "file_name": file_name, "interviewee_name": interviewee_name, "chunk_start": s, "chunk_end": e} for s,e in chunk_segments])
+        chunks.extend(get_chunks_from_json(data, interviewee_name, file_name))
     return chunks
+
+def get_all_chunks_from_db():
+    """Returns all chunks from the database"""
+    chunks = db.collection(u'chunks').get()
+    chunks = [c.to_dict() for c in chunks]
+    return chunks
+
+
 
 
 def get_all_chunks_from_disk():
@@ -179,7 +201,7 @@ def get_all_chunks_from_disk():
 
 @app.post("/search")
 def search(query: str): 
-    chunks = get_all_chunks()
+    chunks = get_all_chunks_from_db()
     # chunks = get_all_chunks_from_disk()
     output, chunks_to_include = nlp_search(query, chunks)
     return {"output": output, "chunks_to_include": chunks_to_include}
