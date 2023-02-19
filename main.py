@@ -6,7 +6,7 @@
 
 from typing import Union
 from uuid import uuid4
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import firebase_admin
@@ -51,10 +51,7 @@ class Conversation(BaseModel):
     audio_file_path: str
     interviewee_name: str
 
-
-# Given a download URL (wav file), download the URL and return the analysis
-@app.post("/conversation_analysis")
-async def get_convo_analysis(url: str, final: bool = True, uuid: str = None):
+async def analyze_conversation_background(url: str, docId: str, final:bool = True):
     print("request received")
     # download the file temporarily
     # r = requests.get(url)
@@ -93,15 +90,21 @@ async def get_convo_analysis(url: str, final: bool = True, uuid: str = None):
     print(processed_data)
 
     stored = False
-    if final and uuid is not None:
+    if final and docId is not None:
         stored = True
         # store json in firebase
-        blob = firebase_admin.storage.bucket().blob("convo_jsons/" + uuid + ".json")
-        blob.upload_from_string(json.dumps(processed_data))
+        # upload the results to firebase
+        db.collection('conversations').document(docId).update({"transcripts": processed_data, "questions": questions })
 
     questions = get_questions('temp')
 
-    return {"transcripts": processed_data, "questions": questions, "stored_json":  stored}
+    return {"transcripts": processed_data, "questions": questions, "stored_json":  stored }
+
+# Given a download URL (wav file), download the URL and return the analysis
+@app.post("/conversation_analysis")
+async def get_convo_analysis(url: str, docId: str, background_tasks: BackgroundTasks):
+    background_tasks.add_task(analyze_conversation_background, url, docId)
+    return {"message": "Request received, processing in the background"}
 
 
 
