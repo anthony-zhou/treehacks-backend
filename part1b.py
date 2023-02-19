@@ -18,7 +18,7 @@ def get_questions(file_name="lauren_brooks"):
     
 
     data_clean = clean_json(data)
-    chunks = chunkify(data_clean, "small", 1)
+    chunks = chunkify(data_clean, "medium", 1)
     assert len(chunks) == 1
     chunk_start, chunk_end = chunks[0]
     chunk = data_clean[chunk_start:chunk_end]
