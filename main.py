@@ -16,6 +16,8 @@ import json
 import subprocess
 import base64
 from part1b import get_questions
+from chunkify import clean_json, chunkify, json_to_transcript
+import os
 
 
 from part3 import nlp_search
@@ -125,13 +127,37 @@ class Chunk(BaseModel):
     chunk_end: str
 
 def get_all_chunks():
+    """Returns all chunks from the database"""
     return db.collection(u'chunks').get()
+
+def get_all_chunks_from_disk():
+    """Returns all chunks from the data directory on disk"""
+    the_dir = "data"
+    file_names = [f for f in os.listdir(the_dir) if os.path.isfile(os.path.join(the_dir, f))]
+    file_names = [f[:-5] for f in file_names if f.endswith(".json") ]
+    # file_names = ["courtney_nelson", "debbie_shotwell", "lauren_brooks", "sonali_das"]
+   
+    datas = []
+    for file_name in file_names:
+        with open(f"data/{file_name}.json") as f:
+            datas.append(json.load(f))
+
+    datas_clean = []
+
+    chunks = []
+    for data, file_name in zip(datas, file_names):
+        data_clean = clean_json(data)
+        datas_clean.append(data_clean)
+        chunk_segments = chunkify(data_clean, "medium")
+        chunks.extend([{"text": json_to_transcript(data_clean[s:e]).strip(), "file_name": file_name, "interviewee_name": file_name.replace('_',' '), "chunk_start": s, "chunk_end": e} for s,e in chunk_segments])
+    return chunks
 
 @app.post("/search")
 def search(query: str):
-    chunks = get_all_chunks()
-    output = nlp_search(query, chunks)
-    return {"output": output}
+    # chunks = get_all_chunks()
+    chunks = get_all_chunks_from_disk()
+    output, chunks_to_include = nlp_search(query, chunks)
+    return {"output": output, "chunks_to_include": chunks_to_include}
 
 @app.post("/upload")
 def upload(file: UploadFile = File(...)):

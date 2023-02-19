@@ -46,11 +46,11 @@ def nlp_search(query, chunks):
         num_chunks += 1
     print(f"Using {num_chunks} chunks")
     chunks_to_include = [c[0] for c in chunk_score_pairs[:num_chunks]]
-    chunks_to_include = sorted(chunks_to_include, key=lambda x: x["chunk_start"])
-    chunks_to_include = sorted(chunks_to_include, key=lambda x: x["file_name"])
+    sorted_chunks_to_include = sorted(chunks_to_include, key=lambda x: x["chunk_start"])
+    sorted_chunks_to_include = sorted(sorted_chunks_to_include, key=lambda x: x["file_name"])
 
     last_file_name = None
-    for chunk in chunks_to_include:
+    for chunk in sorted_chunks_to_include:
         if chunk["file_name"] != last_file_name:
             gpt_prompt += f"\n\nCoversation with {chunk['file_name']}:\n\n"
         last_file_name = chunk["interviewee_name"]
@@ -69,28 +69,33 @@ def nlp_search(query, chunks):
         presence_penalty=0
     )
     gpt_output = completion.choices[0].text.strip()
-    return gpt_output
+    return gpt_output, chunks_to_include
 
 
 if __name__ == "__main__":
     import json
     from chunkify import clean_json, chunkify, json_to_transcript
 
-    file_names = ["courtney_nelson", "debbie_shotwell", "lauren_brooks", "sonali_das"]
-    datas = []
-    for file_name in file_names:
-        with open(f"data/{file_name}.json") as f:
-            datas.append(json.load(f))
+    from os import listdir
+    from os.path import isfile, join
+    the_dir = "data"
+    onlyfiles = [f for f in listdir(the_dir) if isfile(join(the_dir, f))]
+    print([f[:-5] for f in onlyfiles if f.endswith(".json") ])
+    # file_names = ["courtney_nelson", "debbie_shotwell", "lauren_brooks", "sonali_das"]
+    # datas = []
+    # for file_name in file_names:
+    #     with open(f"data/{file_name}.json") as f:
+    #         datas.append(json.load(f))
 
-    datas_clean = []
+    # datas_clean = []
 
-    chunks = []
-    for data, file_name in zip(datas, file_names):
-        data_clean = clean_json(data)
-        datas_clean.append(data_clean)
-        chunk_segments = chunkify(data_clean, "medium")
-        chunks.extend([{"text": json_to_transcript(data_clean[s:e]).strip(), "file_name": file_name, "interviewee_name": file_name.replace('_',' '), "chunk_start": s, "chunk_end": e} for s,e in chunk_segments])
-    print(len(chunks))
+    # chunks = []
+    # for data, file_name in zip(datas, file_names):
+    #     data_clean = clean_json(data)
+    #     datas_clean.append(data_clean)
+    #     chunk_segments = chunkify(data_clean, "medium")
+    #     chunks.extend([{"text": json_to_transcript(data_clean[s:e]).strip(), "file_name": file_name, "interviewee_name": file_name.replace('_',' '), "chunk_start": s, "chunk_end": e} for s,e in chunk_segments])
+    # print(len(chunks))
 
-    out = nlp_search("What is said about referrals?", chunks)
-    print(out)
+    # out = nlp_search("What is said about referrals?", chunks)
+    # print(out)
