@@ -73,7 +73,7 @@ def chunkify(data, chunk_size, max_chunks = None):
         success, chunk_start, chunk_end = create_chunk(data, chunk_size, end_index = next_chunk_end)
         if success:
             chunks_idxs.append((chunk_start, chunk_end))
-            next_chunk_end = chunk_start-1
+            next_chunk_end = chunk_start
         else:
             # If we can't find a chunk, then we just expand the most recently calculated chunk to the beginning of the data
             chunks_idxs[-1] = (0, chunks_idxs[-1][1])
