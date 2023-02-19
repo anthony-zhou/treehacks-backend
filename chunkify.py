@@ -32,15 +32,16 @@ def json_to_transcript(data):
             transcript += "\n\n" + d["role"] + ":\n" + d["text"].strip()
             i+=1
         last_speaker = d["speaker_id"]
-    print(i)
     return transcript
 
-def create_chunk(data, chunk_size="small", end_index = None):
+def create_chunk(data, chunk_size="medium", end_index = None):
     """Create chunks of conversation exchanges based on chunk_size from the end of the data."""
     if end_index is None:
         end_index = len(data)
 
-    if chunk_size == "small":
+    if chunk_size == "xsmall":
+        return end_index>0, end_index-1, end_index
+    elif chunk_size == "medium":
         # 1 interviewer followed by 1 interviewee potentially followed by 1 interviewer
         # or enough for 300 words
         interviewee_speak = 0
@@ -51,12 +52,12 @@ def create_chunk(data, chunk_size="small", end_index = None):
         for i, d in enumerate(reversed(data[:end_index])):
             if d["role"] == "INTERVIEWEE":
                 interviewee_speak += 1
-            else:
+            elif d["role"] == "INTERVIEWER" and interviewee_speak >= 1:
                 interviewer_speak += 1
 
             num_words += d["num_words"]
 
-            if interviewee_speak >= 1 and interviewer_speak >= 1 and num_words >= 300:
+            if interviewee_speak >= 1 and interviewer_speak >= 1 and num_words >= 100:
                 # End on with this being the last paragraph
                 chunk_start = end_index - i - 1
                 success = True
