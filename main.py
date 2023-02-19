@@ -10,7 +10,7 @@ from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import firebase_admin
-from firebase_admin import firestore
+from firebase_admin import firestore, storage
 import requests
 import json
 import subprocess
@@ -54,7 +54,7 @@ class Conversation(BaseModel):
 
 # Given a download URL (wav file), download the URL and return the analysis
 @app.post("/conversation_analysis")
-async def get_convo_analysis(url: str):
+async def get_convo_analysis(url: str, final: bool = True, uuid: str = None):
     print("request received")
     # download the file temporarily
     # r = requests.get(url)
@@ -92,12 +92,16 @@ async def get_convo_analysis(url: str):
 
     print(processed_data)
 
-    with open("temp.json", "w") as f:
-        json.dump(processed_data, f)
+    stored = False
+    if final and uuid is not None:
+        stored = True
+        # store json in firebase
+        blob = firebase_admin.storage.bucket().blob("convo_jsons/" + uuid + ".json")
+        blob.upload_from_string(json.dumps(processed_data))
 
     questions = get_questions('temp')
 
-    return {"transcripts": processed_data, "questions": questions }
+    return {"transcripts": processed_data, "questions": questions, "stored_json":  stored}
 
 
 
@@ -128,7 +132,25 @@ class Chunk(BaseModel):
 
 def get_all_chunks():
     """Returns all chunks from the database"""
-    return db.collection(u'chunks').get()
+    convos = db.collection(u'conversations').get()
+    transcripts_jsons = []
+    interviewee_names = []
+    uuids = []
+    for convo in convos:
+        convo_d = convo.to_dict()
+
+        if "transcripts" in convo_d and "title" in convo_d and convo_d["title"] != "":
+            transcripts_jsons.append(convo_d["transcripts"])
+            interviewee_names.append(convo_d["title"])
+            uuids.append(convo.id)
+
+    chunks = []
+    for data, file_name, interviewee_name in zip(transcripts_jsons, uuids, interviewee_names):
+        data_clean = clean_json(data)
+        chunk_segments = chunkify(data_clean, "medium")
+        chunks.extend([{"text": json_to_transcript(data_clean[s:e]).strip(), "file_name": file_name, "interviewee_name": interviewee_name, "chunk_start": s, "chunk_end": e} for s,e in chunk_segments])
+    return chunks
+
 
 def get_all_chunks_from_disk():
     """Returns all chunks from the data directory on disk"""
@@ -153,9 +175,9 @@ def get_all_chunks_from_disk():
     return chunks
 
 @app.post("/search")
-def search(query: str):
-    # chunks = get_all_chunks()
-    chunks = get_all_chunks_from_disk()
+def search(query: str): 
+    chunks = get_all_chunks()
+    # chunks = get_all_chunks_from_disk()
     output, chunks_to_include = nlp_search(query, chunks)
     return {"output": output, "chunks_to_include": chunks_to_include}
 
