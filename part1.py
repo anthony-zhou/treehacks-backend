@@ -3,13 +3,56 @@ import openai
 import dotenv
 import os
 import re
+from pyannote.audio import Pipeline
+import re
+import whisper
+import json
 
+from utils import diarize_text
 from chunkify import clean_json, chunkify, json_to_transcript
+
 dotenv.load_dotenv()
+openai.api_key = os.environ.get("OPENAI_KEY1")
+pipeline = Pipeline.from_pretrained('pyannote/speaker-diarization', use_auth_token=os.environ.get("PYANNOTE_KEY"))
+model = whisper.load_model("medium.en")
 
-OPENAI_KEY1 = os.environ.get("OPENAI_KEY1")
 
-openai.api_key = OPENAI_KEY1
+# speaker_name = 'lauren'
+# audiofile_name = 'Lauren brooks.wav'
+def create_convo_json(speaker_name, audiofile_name, num_speakers=None):
+    # Get ASR result
+    asr_result = model.transcribe(audiofile_name, language='en')
+
+    # Get diarization result
+    if num_speakers is not None:
+        diarization_result = pipeline(audiofile_name, num_speakers=num_speakers)
+    else:
+        diarization_result = pipeline(audiofile_name)
+
+    final_result = diarize_text(asr_result, diarization_result)
+
+    transcripts = []
+    for seg, spk, sent in final_result:
+        obj = {
+            'time_start': seg.start,
+            'time_end': seg.end,
+            'speaker_id': spk,
+            'text': sent,
+            'num_words': len(sent.split()),
+        }
+        transcripts.append(obj)
+
+    # Clean up the json
+    transcripts = clean_json(transcripts)
+
+    # Save the json
+    with open(f'data/{audiofile_name}.json', 'w', encoding='utf-8') as f:
+        json.dump(transcripts, f, ensure_ascii=False, indent=4)
+        
+    return transcripts
+
+
+
 
 PROMPT = "I am going to share a chunk of a user interview. This is an exploratory interview where our general learning objective is to learn more about how the interviewee uses talent sharing. Could you please come up with a formal, numbered, list of follow up questions that we can ask the interviewer relating to what we are talking about at the end?  Please make the question be a natural response directly related to what the interviewee just said.\nHere is the interview:"
 
@@ -43,7 +86,6 @@ def get_questions(file_name="lauren_brooks"):
     print(gpt_output)
 
     # We will have to modify regex for other output types
-
     # \n1. ... \n2. ... \n3. ...
     pattern_number = r"\d\..+\n"
 
@@ -55,3 +97,4 @@ def get_questions(file_name="lauren_brooks"):
 
 
 get_questions()
+
