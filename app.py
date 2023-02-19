@@ -58,8 +58,8 @@ async def read_root():
 def upload(file: UploadFile = File(...)):
     try:
         contents = file.file.read()
-        with open(file.filename, 'wb') as f:
-            f.write(contents)
+        with open('temp.webm', "wb") as buffer:
+            buffer.write(contents)
     except Exception:
         return {"message": "There was an error uploading the file"}
     finally:
