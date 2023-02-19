@@ -10,6 +10,7 @@ from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import firebase_admin
+from part3 import nlp_search
 
 app = FastAPI()
 
@@ -59,7 +60,21 @@ async def create_convo(audio_file: UploadFile = File(...)):
 #     db.
 
 
+class Chunk(BaseModel):
+    text: str
+    file_name: str
+    interviewee_name: str
+    chunk_start: str
+    chunk_end: str
 
+def get_all_chunks():
+    return db.collection(u'chunks').get()
+
+@app.post("/search")
+def search(query: str):
+    chunks = get_all_chunks()
+    output = nlp_search(query, chunks)
+    return {"output": output}
 
 @app.post("/upload")
 def upload(file: UploadFile = File(...)):
