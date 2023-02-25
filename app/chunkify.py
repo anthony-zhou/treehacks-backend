@@ -1,5 +1,3 @@
-
-
 def clean_json(data):
     new_data = []
     last_speaker = None
@@ -18,9 +16,10 @@ def clean_json(data):
         last_speaker = d["speaker_id"]
     return new_data
 
+
 def json_to_transcript(data):
     transcript = ""
-    i = 0 
+    i = 0
     last_speaker = None
     for d in data:
         if len(d["text"]) == 0:
@@ -30,17 +29,18 @@ def json_to_transcript(data):
         else:
             # transcript += "\n\n" + d["speaker_id"] + ":\n" + d["text"].strip()
             transcript += "\n\n" + d["role"] + ":\n" + d["text"].strip()
-            i+=1
+            i += 1
         last_speaker = d["speaker_id"]
     return transcript
 
-def create_chunk(data, chunk_size="medium", end_index = None):
+
+def create_chunk(data, chunk_size="medium", end_index=None):
     """Create chunks of conversation exchanges based on chunk_size from the end of the data."""
     if end_index is None:
         end_index = len(data)
 
     if chunk_size == "xsmall":
-        return end_index>0, end_index-1, end_index
+        return end_index > 0, end_index - 1, end_index
     elif chunk_size == "medium":
         # 1 interviewer followed by 1 interviewee potentially followed by 1 interviewer
         # or enough for 300 words
@@ -62,16 +62,19 @@ def create_chunk(data, chunk_size="medium", end_index = None):
                 chunk_start = end_index - i - 1
                 success = True
                 break
-        
+
         return success, chunk_start, end_index
 
-def chunkify(data, chunk_size, max_chunks = None):
+
+def chunkify(data, chunk_size, max_chunks=None):
     chunks_idxs = []
 
     success = True
     next_chunk_end = len(data)
     while success:
-        success, chunk_start, chunk_end = create_chunk(data, chunk_size, end_index = next_chunk_end)
+        success, chunk_start, chunk_end = create_chunk(
+            data, chunk_size, end_index=next_chunk_end
+        )
         if success:
             chunks_idxs.append((chunk_start, chunk_end))
             next_chunk_end = chunk_start
@@ -89,10 +92,10 @@ def chunkify(data, chunk_size, max_chunks = None):
 # [json_to_transcript(data_clean[s:e]) for s,e in chunk_segments]
 
 
-
 # if main
 if __name__ == "main":
     import json
+
     file_name = "lauren_brooks"
     with open(f"data/{file_name}.json") as f:
         data = json.load(f)

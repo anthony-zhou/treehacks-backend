@@ -3,7 +3,7 @@ import openai
 from chunkify import clean_json, chunkify, json_to_transcript
 import dotenv
 import os
-import re 
+import re
 import sys
 
 dotenv.load_dotenv()
@@ -15,7 +15,6 @@ PROMPT = "I am going to share a chunk of a user interview. This is an explorator
 def get_questions(file_name="lauren_brooks"):
     with open(f"{file_name}.json") as f:
         data = json.load(f)
-    
 
     data_clean = clean_json(data)
     chunks = chunkify(data_clean, "medium", 1)
@@ -27,15 +26,14 @@ def get_questions(file_name="lauren_brooks"):
 
     gpt_prompt = PROMPT + "\n\n" + transcript.strip()
 
-
     completion = openai.Completion.create(
         model="text-davinci-003",
         prompt=gpt_prompt,
-        temperature=.7,
+        temperature=0.7,
         max_tokens=256,
         top_p=1,
         frequency_penalty=0,
-        presence_penalty=0
+        presence_penalty=0,
     )
     gpt_output = completion.choices[0].text.strip()
     print(gpt_output)
